@@ -60,6 +60,16 @@ module.exports = class WireGuard {
         await Util.exec('iptables -A INPUT -p udp -m udp --dport 51820 -j ACCEPT');
         await Util.exec('iptables -A FORWARD -i wg0 -j ACCEPT');
         await Util.exec('iptables -A FORWARD -o wg0 -j ACCEPT');
+        await Util.exec('iptables -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1240');
+        await Util.exec('iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE');
+        await Util.exec('iptables -A FORWARD -i eth0 -o wg0 -p tcp --syn --dport 44158 -m conntrack --ctstate NEW -j ACCEPT');
+        await Util.exec('iptables -A FORWARD -i eth0 -o wg0 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT');
+        await Util.exec('iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 44158 -j DNAT --to-destination 10.8.0.5');
+        await Util.exec('iptables -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1240');
+        await Util.exec('iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE');
+        await Util.exec('iptables -D FORWARD -i eth0 -o wg0 -p tcp --syn --dport 44158 -m conntrack --ctstate NEW -j ACCEPT');
+        await Util.exec('iptables -D FORWARD -i eth0 -o wg0 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT');
+        await Util.exec('iptables -t nat -D PREROUTING -i eth0 -p tcp --dport 44158 -j DNAT --to-destination 10.8.0.5');
         await this.__syncConfig();
 
         return config;
